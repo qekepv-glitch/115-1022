@@ -1,0 +1,816 @@
+import React, { useState } from 'react';
+import { 
+  Target, 
+  BookOpen, 
+  Bot, 
+  Cpu, 
+  Laptop,
+  Copy,
+  CheckCircle2,
+  Lightbulb,
+  SearchCode,
+  Users,
+  AlertTriangle,
+  ExternalLink
+} from 'lucide-react';
+
+// === 分析面板的資料庫 ===
+const ANALYSIS_DATA = {
+  'block-0': {
+    title: "開放式表現任務規準設計",
+    structure: "這段提示詞採用了「先解構、後建構」的策略。要求 AI 先用表格分析任務的知識、技能與態度本質，確保 AI 真正理解該學科的核心素養，然後才產出評量規準。強制要求「可客觀觀察的項目」與「醒目顏色標示差異」，能大幅減輕老師後續微調規準的負擔。",
+    customization: `
+      <div class="mb-3 border-l-4 border-yellow-400 pl-3">
+          <span class="inline-block px-2 py-1 bg-yellow-200 text-yellow-800 rounded text-xs font-bold mb-1">黃色標註 (教育階段與學科)</span><br>
+          👉 填寫如：『<span class="font-bold text-yellow-300">高中</span>』學生的『<span class="font-bold text-yellow-300">物理</span>』科或『<span class="font-bold text-yellow-300">體育</span>』科。
+      </div>
+      <div class="mb-3 border-l-4 border-green-400 pl-3">
+          <span class="inline-block px-2 py-1 bg-green-200 text-green-800 rounded text-xs font-bold mb-1">綠色標註 (任務主題與發表形式)</span><br>
+          👉 具體寫出學生要產出的作品或展演方式，例如：<br>
+          <ul class="list-disc pl-5 mt-2 text-gray-300 text-xs space-y-1">
+              <li><span class="text-green-300 font-bold">國文科</span>：現代詩創作與朗讀發表</li>
+              <li><span class="text-green-300 font-bold">英文科</span>：國際新聞播報影片</li>
+              <li><span class="text-green-300 font-bold">數學科</span>：統計數據圖表海報展</li>
+              <li><span class="text-green-300 font-bold">自然科</span>：探究實作實驗報告與簡報</li>
+              <li><span class="text-green-300 font-bold">社會科</span>：地方創生企劃書與口頭提案</li>
+              <li><span class="text-green-300 font-bold">藝術領域</span>：跨媒材藝術創作與策展導覽</li>
+              <li><span class="text-green-300 font-bold">體育</span>：體適能訓練計畫與實作示範</li>
+          </ul>
+      </div>
+      <div class="mb-3 border-l-4 border-teal-400 pl-3">
+          <span class="inline-block px-2 py-1 bg-teal-200 text-teal-800 rounded text-xs font-bold mb-1">藍綠色標註 (評量等級設定)</span><br>
+          👉 預設為『<span class="font-bold text-teal-300">4 個等級（4 優秀、3 良好、2 基礎、1 待加強）</span>』，老師可依據實際需求改為三等地或五等地。
+      </div>
+      <div class="mb-3 border-l-4 border-blue-400 pl-3">
+          <span class="inline-block px-2 py-1 bg-blue-200 text-blue-800 rounded text-xs font-bold mb-1">藍色標註 (學科本質與技能)</span><br>
+          👉 若暫時沒有具體想法，可直接保留『<span class="font-bold text-blue-300">學科本質</span>』與『<span class="font-bold text-blue-300">學科專屬技能</span>』，讓 AI 根據學科自行發揮與收斂。<br>
+          👉 也可以填入具體內容，例如：<br>
+          <ul class="list-disc pl-5 mt-2 text-gray-300 text-xs space-y-1">
+              <li><span class="text-blue-300 font-bold">國文科</span>：字句篇章理解 / 文本分析與寫作流暢度</li>
+              <li><span class="text-blue-300 font-bold">英文科</span>：聽說讀寫綜合應用 / 跨文化溝通能力</li>
+              <li><span class="text-blue-300 font-bold">數學科</span>：邏輯推演 / 空間概念與解題運算</li>
+              <li><span class="text-blue-300 font-bold">自然科</span>：科學概念原理 / 實驗操作與探究能力</li>
+              <li><span class="text-blue-300 font-bold">社會科</span>：史料判讀 / 社會現象分析與批判性思考</li>
+              <li><span class="text-blue-300 font-bold">藝術領域</span>：美感體驗 / 媒材創作與藝術鑑賞</li>
+              <li><span class="text-blue-300 font-bold">體育</span>：運動技能操作 / 戰術運用與團隊合作</li>
+          </ul>
+      </div>
+      <div class="border-l-4 border-purple-400 pl-3 mt-3">
+          <span class="inline-block px-2 py-1 bg-purple-200 text-purple-800 rounded text-xs font-bold mb-1">紫色標註 (學科專屬評量面向)</span><br>
+          👉 同樣可廣泛保留『<span class="font-bold text-purple-300">請自行列學科專屬評量面向</span>』，由 AI 根據前面的分析自動為您推薦合適的評分維度。
+      </div>
+    `
+  },
+  'block-1': {
+    title: "手寫題批改規準設計",
+    structure: "針對數理化等需要計算或推演過程的學科，這段提示詞要求 AI 拆解「解題歷程的檔案結構」。透過定義每個步驟對應的學科概念與給分比例（全部、一半、0分），能建立出極具信度的分步給分（Partial Credit）標準。",
+    customization: `
+      <div class="mb-3 border-l-4 border-yellow-400 pl-3">
+          <span class="inline-block px-2 py-1 bg-yellow-200 text-yellow-800 rounded text-xs font-bold mb-1">黃色標註 (教育階段與學科)</span><br>
+          👉 填寫如：『<span class="font-bold text-yellow-300">高中</span>』學生的『<span class="font-bold text-yellow-300">數學</span>』科或『<span class="font-bold text-yellow-300">化學</span>』科。
+      </div>
+      <div class="mb-3 border-l-4 border-teal-400 pl-3">
+          <span class="inline-block px-2 py-1 bg-teal-200 text-teal-800 rounded text-xs font-bold mb-1">藍綠色標註 (評量等級與配分)</span><br>
+          👉 強制 AI 依據題分來顯示『<span class="font-bold text-teal-300">０分、一半題分、全部題分</span>』的具體數字，讓批改標準更量化。
+      </div>
+      <div class="mb-3 border-l-4 border-blue-400 pl-3">
+          <span class="inline-block px-2 py-1 bg-blue-200 text-blue-800 rounded text-xs font-bold mb-1">藍色標註 (題分設定)</span><br>
+          👉 依據考卷配分填寫，例如：『第一題題分是 <span class="font-bold text-blue-300">5分</span>』。
+      </div>
+    `
+  },
+  'block-2': {
+    title: "Gemini Notebook：開放式表現任務批改",
+    structure: "將 Gemini Notebook 轉化為專屬評分助教！這段提示詞賦予 AI 「公正評分專家」的角色，並強制要求它不僅給分，還必須給出「做得好的三點」與「優化建議三點」，落實形成性評量的精神。",
+    customization: `
+      <div class="mb-3 border-l-4 border-indigo-400 pl-3">
+          <span class="inline-block px-2 py-1 bg-indigo-200 text-indigo-800 rounded text-xs font-bold mb-1">操作提醒</span><br>
+          👉 請先將前面階段產出的「<span class="font-bold text-indigo-300">評量規準表</span>」貼入，再上傳學生的作品檔案（如 PDF、圖片或文字檔）至 Gemini Notebook 中。
+      </div>
+    `
+  },
+  'block-3': {
+    title: "Gemini Notebook：手寫題批改",
+    structure: "針對手寫題的專屬批改指令。特別強調使用符號（❗️標註錯誤、✅優化建議）來增強視覺回饋，並要求 AI 加上「鼓勵的話」，讓冷冰冰的機器批改帶有教育的溫度。",
+    customization: `
+      <div class="mb-3 border-l-4 border-red-400 pl-3">
+          <span class="inline-block px-2 py-1 bg-red-200 text-red-800 rounded text-xs font-bold mb-1">紅色標註 (錯誤偵測)</span><br>
+          👉 透過強制 AI 輸出 ❗️ 符號，老師在審閱 AI 批改結果時，可以快速掃描學生在哪個推導步驟發生概念迷思。
+      </div>
+    `
+  },
+  'block-4': {
+    title: "Gemini Notebook：國文作文批改",
+    structure: "針對高中國文作文的專屬批改指令。這段提示詞解決了 AI 處理中文手寫稿件的兩大痛點：一是「稿紙格線干擾與直橫排版辨識」，二是「AI 容易自行腦補修改學生原句」。透過嚴格的『完全引用』指令與『辨識信心度』標示，大幅提升批改的信度。",
+    customization: `
+      <div class="mb-3 border-l-4 border-pink-400 pl-3">
+          <span class="inline-block px-2 py-1 bg-pink-200 text-pink-800 rounded text-xs font-bold mb-1">粉色標註 (嚴格引用防呆)</span><br>
+          👉 強制 AI 必須『百分之百』使用原句，避免 AI 在摘要或回饋時，不小心把學生寫得不通順的句子「自動修飾」成優美文句，導致老師無法判斷學生真實寫作能力。
+      </div>
+    `
+  },
+  'block-6': {
+    title: "鷹架與學習單量感",
+    structure: "這段提示詞引導 AI 根據前面產出的任務目標與評量規準，反向推導出在課程中需要提供給學生的「學習鷹架」。透過列舉各種可能的活動與表單形式，激發老師的課程設計靈感。",
+    customization: `
+      <div class="mb-3 border-l-4 border-emerald-400 pl-3">
+          <span class="inline-block px-2 py-1 bg-emerald-200 text-emerald-800 rounded text-xs font-bold mb-1">綠色標註 (鷹架形式)</span><br>
+          👉 您可以根據實際的教學資源與時間，增刪括號內的鷹架形式，例如加入『<span class="font-bold text-emerald-600">實驗操作、分組討論</span>』等。
+      </div>
+    `
+  },
+  'block-7': {
+    title: "協助產生範本",
+    structure: "接續上一個 Prompt，這段指令要求 AI 具體將建議的表單「實體化」。不僅提供表單的結構與提問，還強制要求提供「空白表單」與「模擬學生填寫」，讓老師能立刻評估該表單的難易度與適用性。",
+    customization: `
+      <div class="mb-3 border-l-4 border-sky-400 pl-3">
+          <span class="inline-block px-2 py-1 bg-sky-200 text-sky-800 rounded text-xs font-bold mb-1">藍色標註 (具體表單名稱)</span><br>
+          👉 請將『<span class="font-bold text-sky-600">某工作單/表單/圖卡/日誌/工具</span>』替換為 AI 在上一步建議的，或是您自己決定要製作的具體表單名稱。
+      </div>
+    `
+  },
+  'block-8': {
+    title: "在Gemini產出學習單網頁",
+    structure: "這段提示詞引導 AI 將文字版的學習單轉換為互動式的 HTML 網頁。透過指定開啟 Canvas 功能，並要求加入列印、下載 PNG 與匯出 Google Doc 的實用按鈕，讓學習單不僅能線上填寫，還能方便地保存與繳交。自動擴展的輸入框設計更是提升了學生的數位填寫體驗。",
+    customization: `
+      <div class="mb-3 border-l-4 border-yellow-400 pl-3">
+          <span class="inline-block px-2 py-1 bg-yellow-200 text-yellow-800 rounded text-xs font-bold mb-1">黃色標註 (學習單內容)</span><br>
+          👉 請將『<span class="font-bold text-yellow-600">【以下貼上學習單】</span>』替換為您在上一個步驟中，由 AI 產出並確認無誤的學習單文字內容。
+      </div>
+      <div class="mb-3 border-l-4 border-rose-400 pl-3">
+          <span class="inline-block px-2 py-1 bg-rose-200 text-rose-800 rounded text-xs font-bold mb-1">操作提醒</span><br>
+          👉 提示詞中特別指明「讓 Canvas 亮起來」，這會促使 Gemini 使用其內建的程式碼編輯器 (Canvas) 來生成與展示 HTML，方便老師直接預覽網頁效果。
+      </div>
+    `
+  },
+  'block-5': {
+    title: "GAS 同儕互評系統部署",
+    structure: "這是一段極具工程思維的 Prompt，完美示範了如何讓 AI 生成一個「隨插即用」的雲端系統。包含自動化建置 (免手動執行)、防呆機制 (防重複提交與身份驗證)、匿名化處理 (隨機代碼)，以及本地/雲端雙環境兼容的架構設計。",
+    customization: `
+      <div class="mb-3 border-l-4 border-orange-400 pl-3">
+          <span class="inline-block px-2 py-1 bg-orange-200 text-orange-800 rounded text-xs font-bold mb-1">橘色標註 (評分者與組別設定)</span><br>
+          👉 可依據實際需求更改，例如改為『<span class="font-bold text-orange-600">第一欄是評分者姓名</span>』或『<span class="font-bold text-orange-600">橫軸是第一到第十組</span>』。
+      </div>
+      <div class="mb-3 border-l-4 border-blue-400 pl-3">
+          <span class="inline-block px-2 py-1 bg-blue-200 text-blue-800 rounded text-xs font-bold mb-1">藍色標註 (Sheet ID)</span><br>
+          👉 請將 <span class="font-bold text-blue-600">xxxxxxxxxxxxxx</span> 替換為您真實的 Google Sheet ID。AI 會直接將其寫死在程式碼中，省去後續設定麻煩。
+      </div>
+      <div class="mb-3 border-l-4 border-red-400 pl-3">
+          <span class="inline-block px-2 py-1 bg-red-200 text-red-800 rounded text-xs font-bold mb-1">紅色標註 (身份驗證)</span><br>
+          👉 透過四碼身份碼機制，確保互評過程的真實性，防止學生代填。
+      </div>
+      <div class="border-l-4 border-green-400 pl-3">
+          <span class="inline-block px-2 py-1 bg-green-200 text-green-800 rounded text-xs font-bold mb-1">綠色標註 (檔案命名規範)</span><br>
+          👉 強制 AI 使用 📁 與 🧑‍💻 標示檔案名稱，讓沒有程式基礎的老師也能清楚知道哪段程式碼該貼到 GAS 的哪個檔案中。
+      </div>
+    `
+  }
+};
+
+// === 動畫版 UNI Logo 元件 ===
+const UniLogo = ({ className = "w-16 h-auto" }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 130" className={`shrink-0 drop-shadow-lg ${className}`}>
+      <g stroke="#22d3ee" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" opacity="0.9">
+          <path d="M10,60 L25,60 L40,45 L40,15" className="animate-pulse" />
+          <circle cx="40" cy="15" r="2.5" fill="#22d3ee"/>
+          <path d="M20,95 L35,95 L50,80" />
+          <circle cx="20" cy="95" r="2.5" fill="#22d3ee"/>
+          <path d="M50,15 L65,30 L95,30" />
+          <circle cx="95" cy="30" r="2.5" fill="#22d3ee"/>
+          <path d="M110,65 L90,65 L75,80 L75,100" />
+          <circle cx="75" cy="100" r="2.5" fill="#22d3ee"/>
+          <path d="M105,90 L90,90 L80,80" />
+          <circle cx="105" cy="90" r="2.5" fill="#22d3ee"/>
+          <path d="M75,10 L90,25 L105,25" />
+          <circle cx="75" cy="10" r="2.5" fill="#22d3ee"/>
+      </g>
+      <g transform="translate(30, 25)">
+          <path d="M10,35 L0,-5 L25,15 Z" fill="#030712" stroke="#030712" strokeWidth="2" strokeLinejoin="round"/>
+          <path d="M50,35 L60,-5 L35,15 Z" fill="#030712" stroke="#030712" strokeWidth="2" strokeLinejoin="round"/>
+          <path d="M10,35 C5,15 55,15 50,35 C65,70 65,85 55,85 L5,85 C-5,85 -5,70 10,35 Z" fill="#030712" />
+          {/* 動態尾巴 */}
+          <path d="M50,80 Q 75,85 70,65 Q 65,55 75,50" fill="none" stroke="#030712" strokeWidth="5" strokeLinecap="round" className="cat-tail" style={{ transformOrigin: '50px 80px' }}/>
+          <g transform="translate(6, 26)">
+              {/* 動態眨眼 */}
+              <g className="cat-eyes" style={{ transformOrigin: '23px 6px' }}>
+                <path d="M-2,0 Q12,-6 22,0 Q25,5 20,13 Q10,17 -2,13 Q-7,5 -2,0 Z" fill="#000" stroke="#f43f5e" strokeWidth="2" />
+                <path d="M48,0 Q36,-6 26,0 Q23,5 28,13 Q38,17 48,13 Q53,5 48,0 Z" fill="#000" stroke="#f43f5e" strokeWidth="2" />
+                <path d="M22,0 Q24,-3 26,0" fill="none" stroke="#f43f5e" strokeWidth="2" />
+              </g>
+              {/* 鬍鬚 */}
+              <line x1="2" y1="8" x2="14" y2="2" stroke="#fbcfe8" strokeWidth="1.5" opacity="0.8" strokeLinecap="round" />
+              <line x1="32" y1="8" x2="44" y2="2" stroke="#fbcfe8" strokeWidth="1.5" opacity="0.8" strokeLinecap="round" />
+          </g>
+      </g>
+      <text x="60" y="125" fontFamily="'Segoe UI', 'Microsoft JhengHei', sans-serif" fontWeight="900" fontSize="12" fill="#bae6fd" textAnchor="middle" letterSpacing="0.5">UNI 優履團隊</text>
+  </svg>
+);
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState('overview');
+  const [activePromptAI, setActivePromptAI] = useState('block-0');
+  const [activePromptPeer, setActivePromptPeer] = useState('block-5');
+  const [copiedStates, setCopiedStates] = useState({});
+
+  const handleCopy = (e, textId, explicitText = null) => {
+    e.stopPropagation();
+    let textToCopy = explicitText;
+    
+    if (!textToCopy) {
+      const el = document.getElementById(textId);
+      if (el) textToCopy = el.innerText;
+    }
+
+    if (textToCopy) {
+      const textArea = document.createElement("textarea");
+      textArea.value = textToCopy;
+      textArea.style.position = "fixed";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        setCopiedStates(prev => ({ ...prev, [textId]: true }));
+        setTimeout(() => {
+          setCopiedStates(prev => ({ ...prev, [textId]: false }));
+        }, 2000);
+      } catch(err) {
+        console.error('Copy failed', err);
+      }
+      document.body.removeChild(textArea);
+    }
+  };
+
+  const renderAnalysisPanel = (blockId, IconComponent, iconColorClass, panelTitle) => {
+    const data = ANALYSIS_DATA[blockId];
+    return (
+      <div className="w-1/3 bg-gray-900 text-gray-100 flex flex-col shadow-2xl relative z-20 border-l border-gray-700">
+        <div className="p-6 border-b border-gray-800 bg-gray-900 flex-shrink-0">
+          <h2 className="text-xl font-bold text-white flex items-center">
+            <IconComponent className={`w-6 h-6 mr-2 ${iconColorClass}`} />
+            {panelTitle}
+          </h2>
+          <p className="text-gray-400 text-sm mt-2">點擊左側段落即可查看專屬解析與應用建議。</p>
+        </div>
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar">
+          {data ? (
+            <div className="animate-fade-in">
+              <div className="bg-gray-800 rounded-lg p-5 border border-gray-700 shadow-inner">
+                <h3 className="text-indigo-300 font-bold text-sm uppercase tracking-wider mb-2">結構分析</h3>
+                <p className="text-gray-200 leading-relaxed" dangerouslySetInnerHTML={{ __html: data.structure }}></p>
+              </div>
+              <div className="bg-gray-800 rounded-lg p-5 border border-gray-700 shadow-inner mt-4">
+                <h3 className="text-green-400 font-bold text-sm uppercase tracking-wider mb-3">老師可以這樣做</h3>
+                <div className="text-gray-200 text-sm leading-relaxed space-y-2" dangerouslySetInnerHTML={{ __html: data.customization }}></div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center text-gray-500 mt-20">
+              <Lightbulb className="w-16 h-16 mx-auto mb-4 opacity-50" />
+              <p>請點擊左方 Prompt 區塊開始解析</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 flex flex-col">
+      {/* 智慧財產聲明橫幅 */}
+      <div className="bg-yellow-400 text-yellow-900 px-4 py-2.5 text-center font-bold text-sm md:text-base tracking-wider shadow-md relative z-30 flex items-center justify-center">
+        <AlertTriangle className="w-5 h-5 mr-2" />
+        請尊重智慧財產，使用請引註，prompt模板來源：優履團隊
+      </div>
+
+      {/* Header Banner - 高度再減半，改為左右佈局 */}
+      <header className="bg-gradient-to-r from-indigo-900 via-blue-800 to-indigo-900 text-white py-2 px-6 relative overflow-hidden shrink-0">
+        <div className="absolute top-0 right-0 opacity-10 pointer-events-none transform translate-x-1/4 -translate-y-1/4">
+          <Cpu size={200} />
+        </div>
+        <div className="max-w-7xl mx-auto relative z-10 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center">
+            <UniLogo className="w-12 h-auto mr-4" />
+            <div>
+              <h2 className="text-lg font-bold text-cyan-300 tracking-widest drop-shadow-md">UNI 優履團隊</h2>
+              <p className="text-indigo-100 text-xs mt-0.5 tracking-wider font-medium">陳佩英教授計畫團隊與優履團隊研發設計</p>
+            </div>
+          </div>
+
+          <span className="inline-block py-1 px-3 rounded-full bg-white/20 text-blue-100 text-xs font-semibold tracking-wider border border-white/30 backdrop-blur-sm">
+            2026 教育新浪潮工作坊
+          </span>
+        </div>
+      </header>
+
+      {/* Main Content Area */}
+      <main className="max-w-7xl mx-auto px-4 mt-4 relative z-20 pb-10 flex-1 w-full flex flex-col">
+        {/* Navigation Tabs */}
+        <div className="bg-white rounded-xl shadow-lg p-2 mb-6 flex flex-wrap gap-2 shrink-0">
+          {[
+            { id: 'overview', label: '工作坊總覽', icon: <Target size={18} /> },
+            { id: 'day1-ai', label: '人機共創評量規準', icon: <Bot size={18} className="text-indigo-500" /> },
+            { id: 'peer-review', label: '同儕互評部署雲端實作', icon: <Laptop size={18} className="text-purple-500" /> }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              style={{ minWidth: '140px' }}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-bold transition-all duration-200 ${
+                activeTab === tab.id
+                  ? 'bg-indigo-50 text-indigo-700 shadow-sm border border-indigo-100'
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+              }`}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* --- Tab Content: Overview --- */}
+        {activeTab === 'overview' && (
+          <div className="grid md:grid-cols-2 gap-6 animate-fade-in flex-1">
+            <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="p-3 bg-blue-100 rounded-lg text-blue-600">
+                  <Target size={28} />
+                </div>
+                <h2 className="text-2xl font-bold text-slate-800">工作坊目標</h2>
+              </div>
+              <p className="text-slate-600 leading-relaxed text-lg">
+                本工作坊專為國中小教師設計，旨在探討如何將前沿的生成式 AI 工具（如 <strong>Gemini Notebook、Gemini</strong>）無縫融入日常教學、課程設計與評量規準制定中。
+              </p>
+              <p className="text-slate-600 leading-relaxed text-lg mt-4">
+                透過實務案例與手把手實作，協助老師們建構客製化的 AI 評分助教，並<strong>利用部署 GAS 即時儲存並連動 Google Sheet，達到同儕互評數據自動化收集、即時分析與視覺化呈現的目標</strong>，進而減輕批改負擔並給予學生更精準的學習回饋。
+              </p>
+            </div>
+
+            <div className="space-y-6">
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex gap-4 items-start">
+                <div className="p-3 bg-teal-100 rounded-lg text-teal-600 shrink-0">
+                  <Users size={24} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-800 mb-2">參與對象</h3>
+                  <p className="text-slate-600 text-lg font-medium">國民教育輔導團員、國中小教師</p>
+                </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex gap-4 items-start">
+                <div className="p-3 bg-purple-100 rounded-lg text-purple-600 shrink-0">
+                  <BookOpen size={24} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-800 mb-2">核心實作工具</h3>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <span className="px-3 py-1 bg-slate-100 rounded-md text-sm font-medium border border-slate-200">Google Gemini Notebook</span>
+                    <span className="px-3 py-1 bg-slate-100 rounded-md text-sm font-medium border border-slate-200">Google Gemini</span>
+                    <span className="px-3 py-1 bg-slate-100 rounded-md text-sm font-medium border border-slate-200">Gemini Gems (No-code)</span>
+                    <span className="px-3 py-1 bg-slate-100 rounded-md text-sm font-medium border border-slate-200">Google Apps Script</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ======================================================================= */}
+        {/* TAB: 人機共創評量規準 */}
+        {/* ======================================================================= */}
+        {activeTab === 'day1-ai' && (
+          <div className="animate-fade-in bg-white flex flex-col rounded-2xl shadow-lg border border-slate-200 overflow-hidden" style={{ height: '800px' }}>
+            <div className="flex flex-1 overflow-hidden">
+              {/* Left Panel */}
+              <div className="w-2/3 h-full overflow-y-auto p-6 space-y-8 bg-slate-50 no-scrollbar pb-32">
+                
+                {/* Section 1 Header */}
+                <div className="border-b-2 border-indigo-200 pb-2 mb-4">
+                  <h2 className="text-2xl font-extrabold text-indigo-900 flex items-center">
+                    <span className="bg-indigo-600 text-white w-8 h-8 rounded-full flex items-center justify-center mr-3 text-sm">1</span>
+                    🔴 人機共創評量規準
+                  </h2>
+                </div>
+
+                {/* Block 0: 開放式表現任務規準 */}
+                <div className={`prompt-block bg-white p-5 rounded-xl cursor-pointer ${activePromptAI === 'block-0' ? 'active' : ''}`} onClick={() => setActivePromptAI('block-0')}>
+                  <div className="flex justify-between items-start mb-3">
+                    <span className="px-2 py-1 bg-indigo-100 text-indigo-800 text-xs font-bold rounded">🔷 開放式表現任務規準</span>
+                    <button onClick={(e) => handleCopy(e, 'text-block-0')} className={`flex items-center text-xs px-3 py-1.5 rounded-md border shadow-sm transition-colors ${copiedStates['text-block-0'] ? 'bg-green-50 text-green-600 border-green-200' : 'bg-gray-100 hover:bg-indigo-50 text-gray-700 hover:text-indigo-700 border-gray-200'}`}>
+                      {copiedStates['text-block-0'] ? <CheckCircle2 className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
+                      <span>{copiedStates['text-block-0'] ? '已複製!' : '複製此段'}</span>
+                    </button>
+                  </div>
+                  <div className="mb-3 flex justify-end">
+                    <span className="text-xs font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-pink-500 to-purple-600 animate-pulse tracking-wide drop-shadow-sm">
+                      ⚠️ 請尊重智慧財產，使用請引註，prompt模板來源：優履團隊
+                    </span>
+                  </div>
+                  <div id="text-block-0" className="text-gray-800 leading-relaxed text-sm">
+                    <p>這是一個給<span className="highlight-base hl-yellow">【教育階段】</span>學生的<span className="highlight-base hl-yellow">【學科名稱】</span>科表現任務，讓學生在課程的最後融合該學科習得的知識、技能、態度完成這個<span className="highlight-base hl-green">【任務主題與發表形式】</span>任務。</p>
+                    <p className="mt-2">請先用可編輯表格分析這個任務的結構與內涵，包含：任務簡述、涉及的<span className="highlight-base hl-blue">【學科本質】</span>、涉及的<span className="highlight-base hl-blue">【學科專屬技能】</span>、完成該發表形式本身需要的技能、涉及的態度，以及學習目標（請嚴格遵守「學生能＋在……條件狀況下＋動詞＋受詞」的格式列出 3-5 條）。</p>
+                    <p className="mt-2">我要在學生進行表現任務時進行評量，請根據上述分析結果設計一份評量規準表（以可編輯表格呈現）：需有 <span className="highlight-base hl-orange">【數量】</span> 個評量面向，每個面向有 <span className="highlight-base hl-teal">【4 個等級（4 優秀、3 良好、2 基礎、1 待加強），也可改三等地】</span> 的判準描述。評量面不可籠統面向。面向請從以下項目中選取：<span className="highlight-base hl-purple">【請自行列學科專屬評量面向】</span></p>
+                    <p className="mt-2 font-bold text-red-600">請注意：所有的判準都要基於可以客觀觀察的項目，不使用籠統形容詞，最高層級的判準需能引導學生做到這些項目。不同層級的判準中『主要有差異的部分』，請用醒目顏色字體凸顯。</p>
+                  </div>
+                </div>
+
+                {/* Block 1: 手寫題批改規準 */}
+                <div className={`prompt-block bg-white p-5 rounded-xl cursor-pointer ${activePromptAI === 'block-1' ? 'active' : ''}`} onClick={() => setActivePromptAI('block-1')}>
+                  <div className="flex justify-between items-start mb-3">
+                    <span className="px-2 py-1 bg-indigo-100 text-indigo-800 text-xs font-bold rounded">🔷 手寫題批改規準</span>
+                    <button onClick={(e) => handleCopy(e, 'text-block-1')} className={`flex items-center text-xs px-3 py-1.5 rounded-md border shadow-sm transition-colors ${copiedStates['text-block-1'] ? 'bg-green-50 text-green-600 border-green-200' : 'bg-gray-100 hover:bg-indigo-50 text-gray-700 hover:text-indigo-700 border-gray-200'}`}>
+                      {copiedStates['text-block-1'] ? <CheckCircle2 className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
+                      <span>{copiedStates['text-block-1'] ? '已複製!' : '複製此段'}</span>
+                    </button>
+                  </div>
+                  <div className="mb-3 flex justify-end">
+                    <span className="text-xs font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-pink-500 to-purple-600 animate-pulse tracking-wide drop-shadow-sm">
+                      ⚠️ 請尊重智慧財產，使用請引註，prompt模板來源：優履團隊
+                    </span>
+                  </div>
+                  <div id="text-block-1" className="text-gray-800 leading-relaxed text-sm">
+                    <p>這是一個給<span className="highlight-base hl-yellow">【高中】</span>學生的<span className="highlight-base hl-yellow">【數學】</span>科手寫題題目與學生書寫範例，請用可編輯的表格展現這個手寫題解題歷程的檔案結構、標示每個結構在檔案中的位置、摘要/描述、對應學科的概念（請用簡短詞彙）、學生學習目標（請用學生能＋條件狀況＋動詞＋（條件狀況）受詞）、完成這樣手寫題需要的學科相關知識、能力。</p>
+                    <p className="mt-2">我要批改學生這樣的手寫題，要知道上述所有的知識能力和態度學生是否有達成，請提供我這個手寫題任務的評量規準表，以可編輯表格格式，做出批改規準。需有批改面向與 <span className="highlight-base hl-teal">【三個等級的判準描述（分別是０分、一半題分、全部題分（請根據一題的題分來顯示分數））】</span>，請注意所有的判準都是要基於可以客觀觀察的項目，不使用籠統形容詞，最高層級的判準可引導學生做到這些項目。不同層級的判準中『主要有差異的部分』，請用醒目顏色字體凸顯。</p>
+                    <p className="mt-2 font-bold bg-blue-50 p-2 rounded">我的【第一題題分是<span className="highlight-base hl-blue">某分</span>】。【第二題題分是<span className="highlight-base hl-blue">某分</span>】</p>
+                  </div>
+                </div>
+
+                {/* Section 2 Header */}
+                <div className="border-b-2 border-teal-200 pb-2 mb-4 mt-10">
+                  <h2 className="text-2xl font-extrabold text-teal-900 flex items-center">
+                    <span className="bg-teal-600 text-white w-8 h-8 rounded-full flex items-center justify-center mr-3 text-sm">2</span>
+                    🔴 在 Gemini Notebook 建立評分機器人
+                  </h2>
+                </div>
+
+                {/* Block 2: 開放式表現任務批改 */}
+                <div className={`prompt-block bg-white p-5 rounded-xl cursor-pointer ${activePromptAI === 'block-2' ? 'active' : ''}`} onClick={() => setActivePromptAI('block-2')}>
+                  <div className="flex justify-between items-start mb-3">
+                    <span className="px-2 py-1 bg-teal-100 text-teal-800 text-xs font-bold rounded">🔷 開放式表現任務批改</span>
+                    <button onClick={(e) => handleCopy(e, 'text-block-2')} className={`flex items-center text-xs px-3 py-1.5 rounded-md border shadow-sm transition-colors ${copiedStates['text-block-2'] ? 'bg-green-50 text-green-600 border-green-200' : 'bg-gray-100 hover:bg-teal-50 text-gray-700 hover:text-teal-700 border-gray-200'}`}>
+                      {copiedStates['text-block-2'] ? <CheckCircle2 className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
+                      <span>{copiedStates['text-block-2'] ? '已複製!' : '複製此段'}</span>
+                    </button>
+                  </div>
+                  <div className="mb-3 flex justify-end">
+                    <span className="text-xs font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-pink-500 to-purple-600 animate-pulse tracking-wide drop-shadow-sm">
+                      ⚠️ 請尊重智慧財產，使用請引註，prompt模板來源：優履團隊
+                    </span>
+                  </div>
+                  <div id="text-block-2" className="text-gray-800 leading-relaxed text-sm">
+                    <p>你是一個公正也專業的評分專家，會根據以下評量規準評分，提供學生作品的不同面向成績，以及總成績，用表格呈現。</p>
+                    <p className="mt-2 font-bold text-indigo-700">並且會在每個面向都舉出做得好的列點三點、可以再跟進一步優化的建議列點三點。</p>
+                    <p className="mt-2 text-gray-500">評量規準如下：<br/>(請在此處貼上您在第一部分產出的評量規準表)</p>
+                  </div>
+                </div>
+
+                {/* Block 3: 手寫題批改 */}
+                <div className={`prompt-block bg-white p-5 rounded-xl cursor-pointer ${activePromptAI === 'block-3' ? 'active' : ''}`} onClick={() => setActivePromptAI('block-3')}>
+                  <div className="flex justify-between items-start mb-3">
+                    <span className="px-2 py-1 bg-teal-100 text-teal-800 text-xs font-bold rounded">🔷 手寫題批改</span>
+                    <button onClick={(e) => handleCopy(e, 'text-block-3')} className={`flex items-center text-xs px-3 py-1.5 rounded-md border shadow-sm transition-colors ${copiedStates['text-block-3'] ? 'bg-green-50 text-green-600 border-green-200' : 'bg-gray-100 hover:bg-teal-50 text-gray-700 hover:text-teal-700 border-gray-200'}`}>
+                      {copiedStates['text-block-3'] ? <CheckCircle2 className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
+                      <span>{copiedStates['text-block-3'] ? '已複製!' : '複製此段'}</span>
+                    </button>
+                  </div>
+                  <div className="mb-3 flex justify-end">
+                    <span className="text-xs font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-pink-500 to-purple-600 animate-pulse tracking-wide drop-shadow-sm">
+                      ⚠️ 請尊重智慧財產，使用請引註，prompt模板來源：優履團隊
+                    </span>
+                  </div>
+                  <div id="text-block-3" className="text-gray-800 leading-relaxed text-sm">
+                    <p>你是一個專業的學科手寫題批改與回饋專家，會根據以下評量規準給分，提供學生手寫題的不同面向成績，以及總成績，用表格呈現。</p>
+                    <p className="mt-2">並且會在每個面向都舉出正確以及做得好的部分。</p>
+                    <div className="mt-3 p-3 bg-red-50 border-l-4 border-red-400 rounded">
+                        <p className="font-bold text-red-800">需要訂正（有錯誤的地方務必標註 ❗️）</p>
+                    </div>
+                    <div className="mt-2 p-3 bg-green-50 border-l-4 border-green-400 rounded">
+                        <p className="font-bold text-green-800">並提供再跟進一步優化的建議 ✅，並加上鼓勵的話。</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Block 4: 國文作文批改 */}
+                <div className={`prompt-block bg-white p-5 rounded-xl cursor-pointer ${activePromptAI === 'block-4' ? 'active' : ''}`} onClick={() => setActivePromptAI('block-4')}>
+                  <div className="flex justify-between items-start mb-3">
+                    <span className="px-2 py-1 bg-pink-100 text-pink-800 text-xs font-bold rounded">🔷 國文作文批改</span>
+                    <button onClick={(e) => handleCopy(e, 'text-block-4')} className={`flex items-center text-xs px-3 py-1.5 rounded-md border shadow-sm transition-colors ${copiedStates['text-block-4'] ? 'bg-green-50 text-green-600 border-green-200' : 'bg-gray-100 hover:bg-pink-50 text-gray-700 hover:text-pink-700 border-gray-200'}`}>
+                      {copiedStates['text-block-4'] ? <CheckCircle2 className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
+                      <span>{copiedStates['text-block-4'] ? '已複製!' : '複製此段'}</span>
+                    </button>
+                  </div>
+                  <div className="mb-3 flex justify-end">
+                    <span className="text-xs font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-pink-500 to-purple-600 animate-pulse tracking-wide drop-shadow-sm">
+                      ⚠️ 請尊重智慧財產，使用請引註，prompt模板來源：優履團隊
+                    </span>
+                  </div>
+                  <div id="text-block-4" className="text-gray-800 leading-relaxed text-sm">
+                    <p>你是一個是嚴謹的高中國文作文批改者，會先光學辨識中文作文的直式/橫式。由上至下/由左至右排版邏輯。『完全按照引用』使用者的原始文章字句，並標註在文章的何處，進行他的文章的評分與回饋。通常學生給你的會是有格子的稿紙，你在辨識中文字的時候要忽略格子，只看縱向/橫向連結起來的文字。</p>
+                    <p className="mt-2">使用者會上傳學生的作文檔案或是照片，告訴你是知性題還是感性題，（若未告訴你，你可以先自行評估，再請使用者確認。你會給予適當的等地與評分。評分方式請按照評量規準。</p>
+                    <div className="mt-3 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded">
+                        <p className="font-bold text-yellow-800">⚠️請注意：【原始作文文句例子】＃在文章的何處</p>
+                        <p className="mt-1 text-yellow-900">務必『<span className="highlight-base hl-pink">完全按照</span>』原始文章原句，不要調動會調修任何一個句或詞彙，『完全百分百』的按照原來的文字與詞彙，文句長時可以用....句子....處理，你所引用的字句詞彙一定不能有任何更動原始字句。也不能只擷取無意義的句子。</p>
+                    </div>
+                    <p className="mt-3 font-bold text-indigo-700">（....**原始文章作者的字句**.....），辨識信心度🌟🌟🌟🌟🌟</p>
+                  </div>
+                </div>
+
+                {/* Section 3 Header */}
+                <div className="border-b-2 border-emerald-200 pb-2 mb-4 mt-10">
+                  <h2 className="text-2xl font-extrabold text-emerald-900 flex items-center">
+                    <span className="bg-emerald-600 text-white w-8 h-8 rounded-full flex items-center justify-center mr-3 text-sm">3</span>
+                    🔴 加碼請ＡＩ產出相關表單
+                  </h2>
+                </div>
+
+                {/* Block 6: 鷹架與學習單量感 */}
+                <div className={`prompt-block bg-white p-5 rounded-xl cursor-pointer ${activePromptAI === 'block-6' ? 'active' : ''}`} onClick={() => setActivePromptAI('block-6')}>
+                  <div className="flex justify-between items-start mb-3">
+                    <span className="px-2 py-1 bg-emerald-100 text-emerald-800 text-xs font-bold rounded">🔷 prompt1: 鷹架與學習單量感</span>
+                    <button onClick={(e) => handleCopy(e, 'text-block-6')} className={`flex items-center text-xs px-3 py-1.5 rounded-md border shadow-sm transition-colors ${copiedStates['text-block-6'] ? 'bg-green-50 text-green-600 border-green-200' : 'bg-gray-100 hover:bg-emerald-50 text-gray-700 hover:text-emerald-700 border-gray-200'}`}>
+                      {copiedStates['text-block-6'] ? <CheckCircle2 className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
+                      <span>{copiedStates['text-block-6'] ? '已複製!' : '複製此段'}</span>
+                    </button>
+                  </div>
+                  <div className="mb-3 flex justify-end">
+                    <span className="text-xs font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-pink-500 to-purple-600 animate-pulse tracking-wide drop-shadow-sm">
+                      ⚠️ 請尊重智慧財產，使用請引註，prompt模板來源：優履團隊
+                    </span>
+                  </div>
+                  <div id="text-block-6" className="text-gray-800 leading-relaxed text-sm">
+                    <p>最後要讓學生能更結合這個課程習得的知識、能力、態度，專業的完成這樣的任務，事前的課程需要幫學生搭建哪些鷹架呢（活動、講座、訪談、踏查、影片、資料搜尋......）？</p>
+                    <p className="mt-2">每個課程環節需要提供怎樣的工作表（檢核表、書面或影片參考資料、自評表、互評表.....）才能協助學生完美達成任務</p>
+                  </div>
+                </div>
+
+                {/* Block 7: 協助產生範本 */}
+                <div className={`prompt-block bg-white p-5 rounded-xl cursor-pointer ${activePromptAI === 'block-7' ? 'active' : ''}`} onClick={() => setActivePromptAI('block-7')}>
+                  <div className="flex justify-between items-start mb-3">
+                    <span className="px-2 py-1 bg-sky-100 text-sky-800 text-xs font-bold rounded">🔷 prompt2: 協助產生範本</span>
+                    <button onClick={(e) => handleCopy(e, 'text-block-7')} className={`flex items-center text-xs px-3 py-1.5 rounded-md border shadow-sm transition-colors ${copiedStates['text-block-7'] ? 'bg-green-50 text-green-600 border-green-200' : 'bg-gray-100 hover:bg-sky-50 text-gray-700 hover:text-sky-700 border-gray-200'}`}>
+                      {copiedStates['text-block-7'] ? <CheckCircle2 className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
+                      <span>{copiedStates['text-block-7'] ? '已複製!' : '複製此段'}</span>
+                    </button>
+                  </div>
+                  <div className="mb-3 flex justify-end">
+                    <span className="text-xs font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-pink-500 to-purple-600 animate-pulse tracking-wide drop-shadow-sm">
+                      ⚠️ 請尊重智慧財產，使用請引註，prompt模板來源：優履團隊
+                    </span>
+                  </div>
+                  <div id="text-block-7" className="text-gray-800 leading-relaxed text-sm">
+                    <p>請提供我上面提及的『某工作單/表單/圖卡/日誌/工具』，根據任務學習目標『某某』請提供它的要點標題或提問、學生填答方式...並附上學生空白表單與模擬學生填寫</p>
+                    <p className="mt-2 text-indigo-700 font-bold">上面的『某』請都依據我的脈絡協助我書寫</p>
+                  </div>
+                </div>
+
+                {/* Section 4 Header */}
+                <div className="border-b-2 border-rose-200 pb-2 mb-4 mt-10">
+                  <h2 className="text-2xl font-extrabold text-rose-900 flex items-center">
+                    <span className="bg-rose-600 text-white w-8 h-8 rounded-full flex items-center justify-center mr-3 text-sm">4</span>
+                    🔴 在Gemini產出學習單網頁
+                  </h2>
+                </div>
+
+                {/* Block 8: 產出學習單網頁 */}
+                <div className={`prompt-block bg-white p-5 rounded-xl cursor-pointer ${activePromptAI === 'block-8' ? 'active' : ''}`} onClick={() => setActivePromptAI('block-8')}>
+                  <div className="flex justify-between items-start mb-3">
+                    <span className="px-2 py-1 bg-rose-100 text-rose-800 text-xs font-bold rounded">🔷 產出學習單網頁</span>
+                    <button onClick={(e) => handleCopy(e, 'text-block-8')} className={`flex items-center text-xs px-3 py-1.5 rounded-md border shadow-sm transition-colors ${copiedStates['text-block-8'] ? 'bg-green-50 text-green-600 border-green-200' : 'bg-gray-100 hover:bg-rose-50 text-gray-700 hover:text-rose-700 border-gray-200'}`}>
+                      {copiedStates['text-block-8'] ? <CheckCircle2 className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
+                      <span>{copiedStates['text-block-8'] ? '已複製!' : '複製此段'}</span>
+                    </button>
+                  </div>
+                  <div className="mb-3 flex justify-end">
+                    <span className="text-xs font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-pink-500 to-purple-600 animate-pulse tracking-wide drop-shadow-sm">
+                      ⚠️ 請尊重智慧財產，使用請引註，prompt模板來源：優履團隊
+                    </span>
+                  </div>
+                  <div id="text-block-8" className="text-gray-800 leading-relaxed text-sm">
+                    <p>以下請在Ｇemini中讓Ｃanvas亮起來</p>
+                    <p className="mt-2">請提供學生填寫的網頁ＨＴＭＬ格式，並添加列印按鈕，以及下載ＰＮＧ按鈕、匯出google doc按鈕。要有自動擴展的輸入框（學生打字時，輸入框會自動長高，確保所有內容都能被完整顯示）</p>
+                    <p className="mt-3 font-bold"><span className="highlight-base hl-yellow">【以下貼上學習單】</span></p>
+                  </div>
+                </div>
+
+              </div>
+              {/* Right Panel */}
+              {renderAnalysisPanel(activePromptAI, SearchCode, 'text-indigo-400', 'Prompt 結構分析面板')}
+            </div>
+          </div>
+        )}
+
+        {/* ======================================================================= */}
+        {/* TAB: 同儕互評部署雲端實作 */}
+        {/* ======================================================================= */}
+        {activeTab === 'peer-review' && (
+          <div className="animate-fade-in bg-white flex flex-col rounded-2xl shadow-lg border border-slate-200 overflow-hidden" style={{ height: '800px' }}>
+            <div className="flex flex-1 overflow-hidden">
+              {/* Left Panel */}
+              <div className="w-2/3 h-full overflow-y-auto p-6 space-y-8 bg-slate-50 no-scrollbar pb-32">
+                
+                <div className="border-b-2 border-purple-200 pb-2 mb-4">
+                  <h2 className="text-2xl font-extrabold text-purple-900 flex items-center">
+                    <span className="bg-purple-600 text-white w-8 h-8 rounded-full flex items-center justify-center mr-3 text-sm">5</span>
+                    🔴 同儕互評部署雲端實作
+                  </h2>
+                </div>
+
+                {/* 溫馨提示與連結區塊 */}
+                <div className="bg-orange-50 border-l-8 border-orange-500 p-6 rounded-xl shadow-sm mb-6">
+                  <a 
+                    href="https://share.gemini.google/oWKxk7iDniKE" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold rounded-md transition-colors shadow-sm mb-6"
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    模擬未部署的同儕評量請點我
+                  </a>
+                  
+                  <h3 className="font-bold text-orange-800 text-lg mb-4 flex items-center">
+                    👉 溫馨提示：
+                  </h3>
+                  
+                  <div className="flex items-start mb-4">
+                    <span className="bg-orange-200 text-orange-800 px-2.5 py-1 rounded-md font-bold text-sm mr-3 shrink-0">step1:</span>
+                    <p className="text-orange-900 font-medium pt-0.5">請按黑嚕嚕的地方右上角的箭頭，下載程式碼試玩</p>
+                  </div>
+                  
+                  <div className="flex items-start mb-2">
+                    <span className="bg-orange-200 text-orange-800 px-2.5 py-1 rounded-md font-bold text-sm mr-3 shrink-0">step2:</span>
+                    <p className="text-orange-900 font-medium pt-0.5">請複製程式碼，打開您的 Gemini, 打開 Canvas</p>
+                  </div>
+                  
+                  <div className="ml-0 mb-6 bg-orange-100 border border-orange-300 rounded-lg p-4">
+                    <p className="font-bold text-orange-700 mb-2">prompt:</p>
+                    <p className="text-orange-900 font-medium leading-relaxed">請重現這個網頁<br/>以下貼入程式碼。</p>
+                  </div>
+                  
+                  <div className="flex items-start mb-4">
+                    <span className="bg-orange-200 text-orange-800 px-2.5 py-1 rounded-md font-bold text-sm mr-3 shrink-0">step3:</span>
+                    <p className="text-orange-900 font-medium pt-0.5">功能格式都不要變，但是評量規準更改如下：</p>
+                  </div>
+                  
+                  <div className="ml-0 mb-4 flex items-center flex-wrap gap-2">
+                    <span className="text-orange-900 font-medium">繳交的網址請改成：</span>
+                    <span className="bg-yellow-200 text-yellow-800 px-2 py-1 font-bold border-b-2 border-dashed border-yellow-600">【請填入您想要學生上傳的google drive網址】</span>
+                  </div>
+                  
+                  <div className="ml-0 bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                    <p className="text-gray-600 font-medium">下面貼上您的評量規準</p>
+                  </div>
+                </div>
+
+                {/* Block 5: GAS 部署 Prompt */}
+                <div className={`prompt-block bg-white p-5 rounded-xl cursor-pointer ${activePromptPeer === 'block-5' ? 'active' : ''}`} onClick={() => setActivePromptPeer('block-5')}>
+                  <div className="flex justify-between items-start mb-3">
+                    <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-bold rounded">🔷 部署至 Google Apps Script (GAS)</span>
+                    <button onClick={(e) => handleCopy(e, 'text-block-5')} className={`flex items-center text-xs px-3 py-1.5 rounded-md border shadow-sm transition-colors ${copiedStates['text-block-5'] ? 'bg-green-50 text-green-600 border-green-200' : 'bg-gray-100 hover:bg-purple-50 text-gray-700 hover:text-purple-700 border-gray-200'}`}>
+                      {copiedStates['text-block-5'] ? <CheckCircle2 className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
+                      <span>{copiedStates['text-block-5'] ? '已複製!' : '複製此段'}</span>
+                    </button>
+                  </div>
+                  <div className="mb-3 flex justify-end">
+                    <span className="text-xs font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-pink-500 to-purple-600 animate-pulse tracking-wide drop-shadow-sm">
+                      ⚠️ 請尊重智慧財產，使用請引註，prompt模板來源：優履團隊
+                    </span>
+                  </div>
+                  <div id="text-block-5" className="text-gray-800 leading-relaxed text-sm">
+                    <p>我要部署到ＧＡＳ，請讓所有人繳交的檔案，整併在我的google sheet，<span className="highlight-base hl-orange">【第一欄是評分者座號】</span>，還要有繳交的時間標註，<span className="highlight-base hl-orange">【橫軸是第一到第七組】</span>，每個儲存格都是評分的同學評的分數。</p>
+                    <p className="mt-3 font-bold">我的google sheet ID是：<br/><span className="highlight-base hl-blue">xxxxxxxxxxxxxx</span></p>
+                    <p className="mt-3">請直接將此 ID 寫入程式碼中，不要預留讓我修改的空間。在我的google sheet上先預建立幾個模擬的分頁和內容。</p>
+                    <p className="mt-2">系統要能「完全自動」建立範本與模擬資料，而不需要手動進去編輯器按「執行」code.gs 裡的程式碼。在網頁載入讀取資料時（getInitialData 函數）加入了一個自動偵測機制。只要系統發現的Google Sheet 裡面沒有相對應的分頁，請自動觸發建立並填入模擬資料。</p>
+                    <p className="mt-3 p-3 bg-red-50 border-l-4 border-red-400 rounded">當使用者填入座號時，會立刻跳出需要他填入<span className="highlight-base hl-red">四個數字身份碼</span>，只有身份碼正確，才讓使用者可以評分。四個數字身份碼請連動在Google Sheet檢的欄位四個數字身份碼。最初模擬先預為都為1111。</p>
+                    <p className="mt-3">同一個座號填寫者重複選了同一個組別的評分時，請跳出提醒視窗，『您已經評過分數，請確認是否修改您的評分』。讓使用者按確定按鈕才可以讓他再次提交同一組的評分結果。但是請不要覆寫資料，直接在此座號的該評分組，下一列存儲格標示『⚠️修改分數』。</p>
+                    <p className="mt-2 text-indigo-700 font-bold">前台呈現即時數據時，請不要出現任何可以辨別評分者的身份資訊。使用隨機代碼呈現。</p>
+                    <p className="mt-3">請不要呼叫ＡＰＩ的模式，提供我完整的ＧＡＳ程式碼，讓我可以簡單複製貼上即可執行。</p>
+                    <div className="mt-3 p-3 bg-green-50 border-l-4 border-green-400 rounded font-bold">
+                        部署程式碼請用 <span className="highlight-base hl-green">📁</span> 符號加上命名告訴我是要貼在『code.gs』<br/>
+                        前台請用 <span className="highlight-base hl-green">🧑‍💻</span> 加上命名明確告訴我這是貼在『Index』且統一Index的I大寫。
+                    </div>
+                    <p className="mt-3">實現 CRUD 功能。</p>
+                    <p className="mt-2">請處理非 GAS 環境中 google is not defined 的問題，加入了能讓網頁在本地預覽時提供模擬測試資料，並在部署到 GAS 後順暢連線到後端。同時將表單重置功能抽離為獨立函式 resetFormAfterSubmit 增加可讀性。</p>
+                  </div>
+                </div>
+
+              </div>
+              {/* Right Panel */}
+              {renderAnalysisPanel(activePromptPeer, SearchCode, 'text-purple-400', 'Prompt 結構分析面板')}
+            </div>
+          </div>
+        )}
+
+      </main>
+
+      {/* 頁尾 Footer 區塊 */}
+      <footer className="bg-slate-900 text-slate-400 py-10 mt-auto border-t border-slate-800">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between">
+          <div className="flex items-center mb-6 md:mb-0">
+            <UniLogo className="w-16 h-auto mr-4 opacity-80 hover:opacity-100 transition-opacity" />
+            <div>
+              <h3 className="text-xl font-bold text-slate-200 tracking-widest">UNI 優履團隊</h3>
+              <p className="text-sm mt-1">教育新浪潮工作坊</p>
+            </div>
+          </div>
+          <div className="text-center md:text-right text-sm">
+            <p className="mb-2 text-slate-300 font-medium">請尊重智慧財產，使用請引註</p>
+            <p>Prompt 模板來源：優履團隊</p>
+            <p>陳佩英教授計畫團隊與優履團隊研發設計 © 2026</p>
+          </div>
+        </div>
+      </footer>
+
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+          animation: fadeIn 0.4s ease-out forwards;
+        }
+
+        /* 貓咪動畫 */
+        @keyframes catBlink {
+          0%, 96%, 98%, 100% { transform: scaleY(1); }
+          97%, 99% { transform: scaleY(0.1); }
+        }
+        .cat-eyes {
+          animation: catBlink 4s infinite;
+        }
+
+        @keyframes tailWag {
+          0%, 100% { transform: rotate(0deg); }
+          50% { transform: rotate(8deg); }
+        }
+        .cat-tail {
+          animation: tailWag 3s ease-in-out infinite;
+        }
+
+        /* 提示詞區塊樣式 */
+        .prompt-block {
+          border: 2px solid transparent;
+          transition: all 0.2s;
+          position: relative;
+        }
+        .prompt-block:hover {
+          border-color: #cbd5e1;
+          transform: translateX(4px);
+        }
+        .prompt-block.active {
+          border-color: #6366f1;
+          background-color: #f8fafc;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+          transform: translateX(8px);
+        }
+        .prompt-block::before {
+          content: '';
+          position: absolute;
+          left: -12px;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 4px;
+          height: 0;
+          background-color: #6366f1;
+          transition: height 0.2s;
+          border-radius: 4px;
+        }
+        .prompt-block.active::before { height: 60%; }
+
+        /* 螢光筆標註樣式 */
+        .highlight-base {
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-weight: 600;
+          cursor: help;
+          border-bottom-width: 2px;
+          border-bottom-style: dashed;
+          display: inline-block;
+          margin: 2px 0;
+          transition: background-color 0.2s;
+        }
+        .hl-yellow { background-color: #fef08a; color: #854d0e; border-bottom-color: #ca8a04; }
+        .hl-yellow:hover { background-color: #fde047; }
+        .hl-green { background-color: #bbf7d0; color: #166534; border-bottom-color: #16a34a; }
+        .hl-green:hover { background-color: #86efac; }
+        .hl-blue { background-color: #bfdbfe; color: #1e3a8a; border-bottom-color: #2563eb; }
+        .hl-blue:hover { background-color: #93c5fd; }
+        .hl-pink { background-color: #fbcfe8; color: #9d174d; border-bottom-color: #db2777; }
+        .hl-pink:hover { background-color: #f9a8d4; }
+        .hl-purple { background-color: #e9d5ff; color: #581c87; border-bottom-color: #9333ea; }
+        .hl-purple:hover { background-color: #d8b4fe; }
+        .hl-orange { background-color: #ffedd5; color: #9a3412; border-bottom-color: #ea580c; }
+        .hl-orange:hover { background-color: #fed7aa; }
+        .hl-teal { background-color: #ccfbf1; color: #0f766e; border-bottom-color: #0d9488; }
+        .hl-teal:hover { background-color: #99f6e4; }
+        .hl-indigo { background-color: #e0e7ff; color: #3730a3; border-bottom-color: #4f46e5; }
+        .hl-indigo:hover { background-color: #c7d2fe; }
+        .hl-red { background-color: #fecaca; color: #991b1b; border-bottom-color: #dc2626; }
+        .hl-red:hover { background-color: #fca5a5; }
+
+        /* 隱藏捲軸但可滾動 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}} />
+    </div>
+  );
+}
